@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ER CT Performance Dashboard — March 9, 2026 | MGH</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0a0a0f;
+    --surface:   #111118;
+    --card:      #1a1a24;
+    --card-hi:   #20202e;
+    --border:    #2a2a3a;
+    --blue:      #3b82f6;
+    --blue-glow: rgba(59,130,246,0.18);
+    --amber:     #f59e0b;
+    --amber-glow:rgba(245,158,11,0.15);
+    --green:     #22c55e;
+    --red:       #ef4444;
+    --purple:    #a855f7;
+    --text:      #e8e8f0;
+    --muted:     #6b6b80;
+    --dim:       #3a3a50;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* subtle grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(59,130,246,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(59,130,246,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 28px 24px 60px;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .header-left .tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--blue);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .tag::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--blue);
+    box-shadow: 0 0 8px var(--blue);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.4; transform: scale(0.8); }
+  }
+  header h1 {
+    font-size: clamp(22px,3vw,34px);
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: #fff;
+  }
+  header h1 span { color: var(--blue); }
+  .header-meta {
+    text-align: right;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+  .header-meta strong { color: var(--text); }
+
+  /* ── KPI STRIP ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  @media(max-width:900px){ .kpi-grid { grid-template-columns: repeat(2,1fr); } }
+
+  .kpi {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 24px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color .25s, transform .25s;
+    animation: fadeUp .5s both;
+  }
+  .kpi:hover { border-color: var(--dim); transform: translateY(-2px); }
+  .kpi::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    border-radius: 14px 14px 0 0;
+  }
+  .kpi.blue::after  { background: linear-gradient(90deg, var(--blue), transparent); }
+  .kpi.amber::after { background: linear-gradient(90deg, var(--amber), transparent); }
+  .kpi.green::after { background: linear-gradient(90deg, var(--green), transparent); }
+  .kpi.red::after   { background: linear-gradient(90deg, var(--red), transparent); }
+
+  .kpi-icon {
+    font-size: 22px;
+    margin-bottom: 10px;
+    opacity: .85;
+  }
+  .kpi-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .kpi-value {
+    font-size: clamp(30px,4vw,44px);
+    font-weight: 800;
+    letter-spacing: -1px;
+    line-height: 1;
+    color: #fff;
+  }
+  .kpi-value sup { font-size: 14px; font-weight: 500; color: var(--muted); vertical-align: super; }
+  .kpi-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-size: 10px;
+    font-weight: 600;
+    margin-top: 6px;
+  }
+  .badge.good { background: rgba(34,197,94,.15); color: var(--green); }
+  .badge.warn { background: rgba(245,158,11,.15); color: var(--amber); }
+  .badge.crit { background: rgba(239,68,68,.15);  color: var(--red); }
+
+  /* ── SECTION HEADER ── */
+  .section-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── CHART CARDS ── */
+  .row-2 {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  @media(max-width:900px){ .row-2 { grid-template-columns: 1fr; } }
+
+  .row-2b {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  @media(max-width:900px){ .row-2b { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 24px;
+    animation: fadeUp .6s both;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+  .card-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 18px;
+  }
+  .chart-wrap {
+    position: relative;
+    height: 260px;
+  }
+  .chart-wrap-sm {
+    position: relative;
+    height: 220px;
+  }
+
+  /* ── SHIFT PILLS ── */
+  .shift-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .shift-pill {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    animation: fadeUp .6s both;
+  }
+  .shift-pill .shift-name {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .shift-pill .shift-hours {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .shift-pill .shift-stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 4px;
+  }
+  .shift-pill .sv { font-size: 28px; font-weight: 800; color: #fff; }
+  .shift-pill .tv { font-size: 18px; font-weight: 700; }
+  .morning-pill { border-top: 2px solid #f59e0b; }
+  .morning-pill .shift-name { color: #f59e0b; }
+  .morning-pill .tv { color: #f59e0b; }
+  .evening-pill { border-top: 2px solid #3b82f6; }
+  .evening-pill .shift-name { color: #3b82f6; }
+  .evening-pill .tv { color: #3b82f6; }
+  .night-pill   { border-top: 2px solid #a855f7; }
+  .night-pill .shift-name { color: #a855f7; }
+  .night-pill .tv { color: #a855f7; }
+  .shift-label  { font-size: 10px; color: var(--muted); }
+
+  /* ── RADIOLOGIST TABLE ── */
+  .rad-table { width: 100%; border-collapse: collapse; }
+  .rad-table th {
+    text-align: left;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 500;
+  }
+  .rad-table td {
+    padding: 12px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 12.5px;
+    vertical-align: middle;
+  }
+  .rad-table tr:last-child td { border-bottom: none; }
+  .rad-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .rank-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .rank-num.gold   { color: #fbbf24; }
+  .rank-num.silver { color: #94a3b8; }
+  .rank-num.bronze { color: #c2784a; }
+  .rad-name {
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.3;
+  }
+  .rad-role {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .vol-bar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .vol-bar {
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(59,130,246,0.25);
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+  .vol-bar-fill {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    border-radius: 3px;
+    background: var(--blue);
+    transition: width .8s ease;
+  }
+  .vol-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    min-width: 22px;
+  }
+  .tat-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 6px;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .tat-green { background: rgba(34,197,94,.12);  color: #22c55e; }
+  .tat-amber { background: rgba(245,158,11,.12); color: #f59e0b; }
+  .tat-red   { background: rgba(239,68,68,.12);  color: #ef4444; }
+
+  /* ── PROCEDURE DONUT ── */
+  .proc-legend {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .proc-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+  }
+  .proc-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .proc-label { color: var(--text); flex: 1; }
+  .proc-pct {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* ── CRITICAL DELAYS ── */
+  .delay-list { display: flex; flex-direction: column; gap: 8px; }
+  .delay-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--red);
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+  }
+  .delay-proc { color: var(--text); font-weight: 500; }
+  .delay-info { color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .delay-tat {
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    color: var(--red);
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    margin-top: 40px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  /* ── ANIMATION ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .kpi:nth-child(1){ animation-delay:.05s }
+  .kpi:nth-child(2){ animation-delay:.10s }
+  .kpi:nth-child(3){ animation-delay:.15s }
+  .kpi:nth-child(4){ animation-delay:.20s }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-left">
+      <div class="tag">Live Analytics Report</div>
+      <h1>ER CT Performance <span>Dashboard</span></h1>
+    </div>
+    <div class="header-meta">
+      <strong>Madinah General Hospital (MGH)</strong><br>
+      Emergency Radiology — CT Modality<br>
+      Date: <strong>Monday, March 9, 2026</strong><br>
+      Cluster: Madinah Health Cluster · Radiology Executive Administration
+    </div>
+  </header>
+
+  <!-- KPI STRIP -->
+  <div class="kpi-grid">
+    <div class="kpi blue">
+      <div class="kpi-icon">🩻</div>
+      <div class="kpi-label">Total Daily Volume</div>
+      <div class="kpi-value">82</div>
+      <div class="kpi-sub">CT studies completed</div>
+      <span class="badge good">Full 24-hr Coverage</span>
+    </div>
+    <div class="kpi amber">
+      <div class="kpi-icon">⏱</div>
+      <div class="kpi-label">Median TAT</div>
+      <div class="kpi-value">43<sup>min</sup></div>
+      <div class="kpi-sub">Mean: 62.3 min</div>
+      <span class="badge good">Within Target</span>
+    </div>
+    <div class="kpi green">
+      <div class="kpi-icon">✅</div>
+      <div class="kpi-label">SLA Compliance (&lt;60 min)</div>
+      <div class="kpi-value">65.9<sup>%</sup></div>
+      <div class="kpi-sub">54 of 82 studies</div>
+      <span class="badge warn">Needs Improvement</span>
+    </div>
+    <div class="kpi red">
+      <div class="kpi-icon">⚠️</div>
+      <div class="kpi-label">Critical Delays (&gt;120 min)</div>
+      <div class="kpi-value">8</div>
+      <div class="kpi-sub">Peak surge: 04:00 (9 studies)</div>
+      <span class="badge crit">Requires Review</span>
+    </div>
+  </div>
+
+  <!-- SHIFT BREAKDOWN -->
+  <div class="section-title">Shift Performance Breakdown</div>
+  <div class="shift-grid">
+    <div class="shift-pill morning-pill">
+      <div class="shift-name">☀ Morning Shift</div>
+      <div class="shift-hours">07:00 – 15:00</div>
+      <div class="shift-stat">
+        <div>
+          <div class="sv">24</div>
+          <div class="shift-label">Studies</div>
+        </div>
+        <div style="text-align:right">
+          <div class="tv">73.3<span style="font-size:12px;font-weight:400"> min</span></div>
+          <div class="shift-label">Avg TAT</div>
+        </div>
+      </div>
+      <span class="badge warn">Highest TAT</span>
+    </div>
+    <div class="shift-pill evening-pill">
+      <div class="shift-name">🌆 Evening Shift</div>
+      <div class="shift-hours">15:00 – 23:00</div>
+      <div class="shift-stat">
+        <div>
+          <div class="sv">26</div>
+          <div class="shift-label">Studies</div>
+        </div>
+        <div style="text-align:right">
+          <div class="tv">59.3<span style="font-size:12px;font-weight:400"> min</span></div>
+          <div class="shift-label">Avg TAT</div>
+        </div>
+      </div>
+      <span class="badge warn">Near Threshold</span>
+    </div>
+    <div class="shift-pill night-pill">
+      <div class="shift-name">🌙 Night Shift</div>
+      <div class="shift-hours">23:00 – 07:00</div>
+      <div class="shift-stat">
+        <div>
+          <div class="sv">32</div>
+          <div class="shift-label">Studies</div>
+        </div>
+        <div style="text-align:right">
+          <div class="tv">56.4<span style="font-size:12px;font-weight:400"> min</span></div>
+          <div class="shift-label">Avg TAT</div>
+        </div>
+      </div>
+      <span class="badge good">Best Performance</span>
+    </div>
+  </div>
+
+  <!-- HOURLY CHART + PROCEDURE MIX -->
+  <div class="section-title">Hourly Dynamics &amp; Procedure Mix</div>
+  <div class="row-2">
+    <div class="card">
+      <div class="card-title">Hourly Volume vs. TAT Trend</div>
+      <div class="card-sub">Study count (bars) and average TAT in minutes (line) across 24-hour period</div>
+      <div class="chart-wrap">
+        <canvas id="hourlyChart"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">CT Protocol Mix</div>
+      <div class="card-sub">Distribution of procedures ordered — March 9</div>
+      <div class="chart-wrap-sm">
+        <canvas id="procChart"></canvas>
+      </div>
+      <div class="proc-legend" id="procLegend"></div>
+    </div>
+  </div>
+
+  <!-- TECHNOLOGIST + RADIOLOGIST -->
+  <div class="section-title">Staff Performance</div>
+  <div class="row-2b">
+    <div class="card">
+      <div class="card-title">Top Technologists by Acquisition Volume</div>
+      <div class="card-sub">Ranked by total CT studies acquired on March 9</div>
+      <div class="chart-wrap" style="height:200px;">
+        <canvas id="techChart"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">TAT Distribution Breakdown</div>
+      <div class="card-sub">Studies categorized by turnaround time ranges</div>
+      <div class="chart-wrap" style="height:200px;">
+        <canvas id="tatDistChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- RADIOLOGIST TABLE -->
+  <div class="card" style="margin-bottom:24px;">
+    <div class="card-title">Radiologist Performance Leaderboard</div>
+    <div class="card-sub">Ranked by total reports signed · March 9, 2026</div>
+    <table class="rad-table">
+      <thead>
+        <tr>
+          <th style="width:40px">#</th>
+          <th>Radiologist</th>
+          <th style="width:160px">Volume</th>
+          <th style="width:110px">Avg TAT</th>
+          <th style="width:100px">Performance</th>
+        </tr>
+      </thead>
+      <tbody id="radTableBody"></tbody>
+    </table>
+  </div>
+
+  <!-- CRITICAL DELAYS -->
+  <div class="section-title">Critical Delay Audit (&gt;120 min TAT)</div>
+  <div class="card" style="margin-bottom:24px;">
+    <div class="card-title">Studies Exceeding 120-Minute Threshold</div>
+    <div class="card-sub">8 studies flagged for operational review</div>
+    <div class="delay-list" id="delayList"></div>
+  </div>
+
+  <footer>
+    <span>MGH · ER Radiology Analytics · Madinah Health Cluster</span>
+    <span>Generated: March 10, 2026 · Data: March 9, 2026 · 82 CT Studies</span>
+  </footer>
+</div>
+
+<script>
+// ─── EMBEDDED DATA ────────────────────────────────────────────────────
+const hourlyData = {
+  hours:   [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23],
+  volumes: [5,3,3,4,9,3,2,4,6,3, 1, 2, 2, 3, 3, 2, 4, 4, 5, 5, 2, 0, 4, 3],
+  avgTat:  [19.6,66.7,65.7,118,58.2,32,23.5,31,73.5,247.3,154,46.5,23,25.7,27.3,40.5,62.5,95,59.2,60.8,29,0,43.2,57]
+};
+
+const procData = {
+  labels: ['CT Brain Volume','CT KUB','CT Abd & Pelvis w/C','CT Spine Lumbar','CT Spine Cervical','CT Chest w/C','Other'],
+  values: [34,15,11,4,4,3,11],
+  colors: ['#3b82f6','#f59e0b','#22c55e','#a855f7','#06b6d4','#f97316','#6b7280']
+};
+
+const techData = {
+  names: ['Rayan M. Alharbi','Abdullah M. Aljuhani','Marwan A. Alharbi','Emad H. Alsaedi','Hala J. Albairuoti'],
+  values: [28,17,17,13,2]
+};
+
+const radData = [
+  { name:'Dr. Sultan A. Alodaylah', role:'Radiology Resident',                     vol:34, avg:63.0 },
+  { name:'Dr. Meyasser M. Olfat',   role:'Senior Registrar – Diagnostic Radiology', vol:16, avg:63.2 },
+  { name:'Dr. Nouf S. Alrashed',    role:'Registrar – Diagnostic Radiology',        vol:12, avg:56.8 },
+  { name:'Dr. Sally M. Osama',      role:'Consultant Radiologist',                  vol: 5, avg:33.4 },
+  { name:'Dr. Feras I. Hakeem',     role:'Consultant Body Imaging',                 vol: 4, avg:57.0 },
+  { name:'Dr. Ahmed A. Eldesouky',  role:'Consultant Radiologist',                  vol: 4, avg:178.8},
+  { name:'Dr. Samer H. Awad',       role:'Registrar – Diagnostic Radiology',        vol: 4, avg:21.0 },
+  { name:'Dr. Naif S. Alhejaili',   role:'Radiology Resident',                      vol: 2, avg:28.5 },
+  { name:'Dr. Sumayyah A. Jafar',   role:'Radiology Resident',                      vol: 1, avg:20.0 },
+];
+
+const criticalDelays = [
+  { proc:'CT Abdomen & Pelvis',     rad:'Dr. Ahmed A. Eldesouky', hour:'09:23', tat:654 },
+  { proc:'CT Brain Volume',          rad:'Dr. Sultan A. Alodaylah', hour:'09:00', tat:302 },
+  { proc:'CT KUB',                   rad:'Dr. Meyasser M. Olfat',   hour:'09:00', tat:218 },
+  { proc:'CT Brain Volume',          rad:'Dr. Meyasser M. Olfat',   hour:'03:00', tat:189 },
+  { proc:'CT Brain Volume',          rad:'Dr. Ahmed A. Eldesouky',  hour:'08:00', tat:178 },
+  { proc:'CT Abdomen & Pelvis w/C',  rad:'Dr. Sultan A. Alodaylah', hour:'10:00', tat:154 },
+  { proc:'CT Brain Volume',          rad:'Dr. Sultan A. Alodaylah', hour:'03:00', tat:129 },
+  { proc:'CT Chest w/C',             rad:'Dr. Meyasser M. Olfat',   hour:'17:00', tat:125 },
+];
+
+// ─── CHART DEFAULTS ──────────────────────────────────────────────────
+Chart.defaults.color = '#6b6b80';
+Chart.defaults.borderColor = '#2a2a3a';
+Chart.defaults.font.family = 'Outfit';
+
+// ─── 1. HOURLY CHART ──────────────────────────────────────────────────
+const hourLabels = hourlyData.hours.map(h => h === 0 ? '12AM' : h < 12 ? h+'AM' : h === 12 ? '12PM' : (h-12)+'PM');
+
+new Chart(document.getElementById('hourlyChart'), {
+  data: {
+    labels: hourLabels,
+    datasets: [
+      {
+        type: 'bar',
+        label: 'Study Volume',
+        data: hourlyData.volumes,
+        backgroundColor: ctx => {
+          const v = ctx.parsed.y;
+          if (v >= 8) return 'rgba(239,68,68,0.75)';
+          if (v >= 5) return 'rgba(245,158,11,0.65)';
+          return 'rgba(59,130,246,0.55)';
+        },
+        borderColor: 'transparent',
+        borderRadius: 4,
+        yAxisID: 'yVol',
+        order: 2,
+      },
+      {
+        type: 'line',
+        label: 'Avg TAT (min)',
+        data: hourlyData.avgTat.map((v,i) => hourlyData.volumes[i] > 0 ? v : null),
+        borderColor: '#f59e0b',
+        backgroundColor: 'rgba(245,158,11,0.08)',
+        borderWidth: 2.5,
+        pointBackgroundColor: ctx => {
+          const v = ctx.parsed.y;
+          return v > 120 ? '#ef4444' : v > 60 ? '#f59e0b' : '#22c55e';
+        },
+        pointBorderColor: '#0a0a0f',
+        pointBorderWidth: 2,
+        pointRadius: 5,
+        fill: true,
+        tension: 0.4,
+        yAxisID: 'yTat',
+        order: 1,
+        spanGaps: false,
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode:'index', intersect:false },
+    plugins: {
+      legend: { position:'top', labels:{ boxWidth:10, font:{size:11} } },
+      tooltip: {
+        backgroundColor: '#1a1a24',
+        borderColor: '#2a2a3a',
+        borderWidth: 1,
+        padding: 10,
+        titleFont: { size:12, weight:'600' },
+        callbacks: {
+          label: ctx => ctx.dataset.label === 'Avg TAT (min)'
+            ? ` TAT: ${ctx.parsed.y?.toFixed(1)} min`
+            : ` Studies: ${ctx.parsed.y}`
+        }
+      }
+    },
+    scales: {
+      x: { grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ font:{size:10} } },
+      yVol: {
+        position:'left',
+        title:{ display:true, text:'Volume', color:'#3b82f6', font:{size:10} },
+        grid:{ color:'rgba(255,255,255,0.04)' },
+        ticks:{ color:'#3b82f6', font:{size:10} },
+        min: 0, max: 12
+      },
+      yTat: {
+        position:'right',
+        title:{ display:true, text:'TAT (min)', color:'#f59e0b', font:{size:10} },
+        grid:{ display:false },
+        ticks:{ color:'#f59e0b', font:{size:10} },
+        min: 0
+      }
+    }
+  }
+});
+
+// ─── 2. PROCEDURE DONUT ──────────────────────────────────────────────
+new Chart(document.getElementById('procChart'), {
+  type: 'doughnut',
+  data: {
+    labels: procData.labels,
+    datasets: [{
+      data: procData.values,
+      backgroundColor: procData.colors.map(c => c + 'cc'),
+      borderColor: '#1a1a24',
+      borderWidth: 3,
+      hoverOffset: 6,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: '68%',
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor:'#1a1a24', borderColor:'#2a2a3a', borderWidth:1,
+        callbacks: {
+          label: ctx => ` ${ctx.label}: ${ctx.parsed} (${(ctx.parsed/82*100).toFixed(1)}%)`
+        }
+      }
+    }
+  }
+});
+
+// proc legend
+const legEl = document.getElementById('procLegend');
+procData.labels.forEach((l,i) => {
+  const pct = (procData.values[i]/82*100).toFixed(1);
+  legEl.innerHTML += `<div class="proc-row">
+    <div class="proc-dot" style="background:${procData.colors[i]}"></div>
+    <div class="proc-label">${l}</div>
+    <div class="proc-pct">${procData.values[i]} · ${pct}%</div>
+  </div>`;
+});
+
+// ─── 3. TECHNOLOGIST BAR ─────────────────────────────────────────────
+new Chart(document.getElementById('techChart'), {
+  type: 'bar',
+  data: {
+    labels: techData.names,
+    datasets: [{
+      label: 'Studies',
+      data: techData.values,
+      backgroundColor: ['#3b82f6cc','#60a5facc','#93c5fdcc','#bfdbfecc','#dbeafecc'],
+      borderColor: 'transparent',
+      borderRadius: 6,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display:false },
+      tooltip: {
+        backgroundColor:'#1a1a24', borderColor:'#2a2a3a', borderWidth:1,
+        callbacks:{ label: ctx => ` ${ctx.parsed.x} acquisitions` }
+      }
+    },
+    scales: {
+      x: { grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ font:{size:11} } },
+      y: { grid:{ display:false }, ticks:{ font:{size:11}, color:'#c8c8d8' } }
+    }
+  }
+});
+
+// ─── 4. TAT DISTRIBUTION ─────────────────────────────────────────────
+new Chart(document.getElementById('tatDistChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['< 30 min','30–60 min','60–120 min','> 120 min'],
+    datasets: [{
+      data: [25, 29, 20, 8],
+      backgroundColor: ['#22c55ecc','#3b82f6cc','#f59e0bcc','#ef4444cc'],
+      borderColor: '#1a1a24',
+      borderWidth: 3,
+      hoverOffset: 6,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: '65%',
+    plugins: {
+      legend: {
+        position: 'right',
+        labels: { boxWidth:10, font:{size:11}, padding:14 }
+      },
+      tooltip: {
+        backgroundColor:'#1a1a24', borderColor:'#2a2a3a', borderWidth:1,
+        callbacks:{ label: ctx => ` ${ctx.parsed} studies (${(ctx.parsed/82*100).toFixed(1)}%)` }
+      }
+    }
+  }
+});
+
+// ─── RADIOLOGIST TABLE ───────────────────────────────────────────────
+const maxVol = Math.max(...radData.map(r => r.vol));
+const rankClasses = ['gold','silver','bronze'];
+const tbody = document.getElementById('radTableBody');
+radData.sort((a,b) => b.vol - a.vol).forEach((r, i) => {
+  const rc = rankClasses[i] || '';
+  const tatClass = r.avg < 45 ? 'tat-green' : r.avg < 75 ? 'tat-amber' : 'tat-red';
+  const perfIcon = r.avg < 45 ? '🟢' : r.avg < 75 ? '🟡' : '🔴';
+  const pct = (r.vol / maxVol * 100).toFixed(0);
+  tbody.innerHTML += `
+    <tr>
+      <td><span class="rank-num ${rc}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':`#${i+1}`}</span></td>
+      <td>
+        <div class="rad-name">${r.name}</div>
+        <div class="rad-role">${r.role}</div>
+      </td>
+      <td>
+        <div class="vol-bar-wrap">
+          <div class="vol-bar"><div class="vol-bar-fill" style="width:${pct}%"></div></div>
+          <span class="vol-num">${r.vol}</span>
+        </div>
+      </td>
+      <td><span class="tat-badge ${tatClass}">${r.avg.toFixed(1)} min</span></td>
+      <td style="font-size:18px; text-align:center;">${perfIcon}</td>
+    </tr>`;
+});
+
+// ─── CRITICAL DELAYS LIST ────────────────────────────────────────────
+const dl = document.getElementById('delayList');
+criticalDelays.sort((a,b) => b.tat - a.tat).forEach(d => {
+  dl.innerHTML += `
+    <div class="delay-item">
+      <div>
+        <div class="delay-proc">${d.proc}</div>
+        <div class="delay-info">${d.rad} · Study hour: ${d.hour}</div>
+      </div>
+      <div class="delay-tat">${d.tat} min</div>
+    </div>`;
+});
+</script>
+</body>
+</html>
